@@ -41,11 +41,7 @@ class DNDLookup:
                 break
 
         lines  = resp.splitlines()
-        ret = []
-        for l in lines:
-            if l.startswith('110 '):
-                ret.append(l[4:])
-        return ret
+        return [l[4:] for l in lines if l.startswith('110 ')]
 
     def close(self):
         self.s.close()
