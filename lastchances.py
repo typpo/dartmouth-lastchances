@@ -33,9 +33,15 @@ class Crush(db.Model):
     crush = db.StringProperty(required=True)
 
 
-# TODO abstract all session tracking to base handler
+# TODO abstract all session handling to base handler
 
-class MainHandler(webapp.RequestHandler):
+class HomeHandler(webapp.RequestHandler):
+    def get(self):
+        sess = sessions.Session()
+        args = dict(logged_in=True if 'id' in sess else False)
+        self.response.out.write(template.render('index.html', args))
+
+class LoginHandler(webapp.RequestHandler):
     def get(self):
         # Login if necessary
         c = CASClient(CAS_URL, SERVICE_URL)
@@ -63,11 +69,15 @@ class EntryHandler(webapp.RequestHandler):
         args = dict(id=u.id)
         self.response.out.write(template.render('entry.html', args))
 
+    def post(self):
+        pass
+
 
 def main():
     # TODO replace get started with real home page with intro and link to main
     util.run_wsgi_app(webapp.WSGIApplication([
-        (r"/", MainHandler),
+        (r"/", HomeHandler),
+        (r"/login", LoginHandler),
         (r"/entry", EntryHandler),
     ]))
 

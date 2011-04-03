@@ -7,13 +7,21 @@
     </head>
     <body>
         <div class="mainoutline">
-        <h1>Dartmouth '11 Last Chances</h1>
+        <h1>Dartmouth Last Chances 2011</h1>
         
         <p><span class="loud"><strong>Find crushes, etc.</strong><br>
-            Logged in as {{id}}.<br>
             You'll get an email in time for Senior Week.</span>
             </p>
+
+            <p>
+            {% if logged_in %}
+            <a href="/entry">Edit your picks</a>
+            {% else %}
+            <a href="/login">Login</a>
+            {% endif %}
+            </p>
+        
         </div>
-        <div class="footer">Home | <a href="/pages/about.html">About</a>| by <a href="http://ianww.com">Ian Webster</a> </div>
+        <div class="footer">Home | <a href="/pages/about.html">About</a></div>
     </body>
 </html>
