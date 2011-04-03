@@ -11,6 +11,7 @@ import cgi
 
 from cas import CASClient
 from appengine_utilities import sessions
+from dnd import DNDLookup
 
 from django.utils import simplejson as json
 from google.appengine.ext import db
@@ -20,7 +21,7 @@ from google.appengine.ext.webapp import template
 from google.appengine.api import mail
 
 CAS_URL = 'https://login.dartmouth.edu/cas/'
-SERVICE_URL = 'http://localhost:8080'
+SERVICE_URL = 'http://localhost:8080/login'
 
 class User(db.Model):
     id = db.StringProperty(required=True)
@@ -52,7 +53,7 @@ class LoginHandler(webapp.RequestHandler):
         if id:
             sess = sessions.Session()
             try:
-                sess['id'] = id[:id.find('@')].lower()
+                sess['id'] = id[:id.find('@')]
                 self.redirect('/entry')
                 return
             except:
@@ -69,13 +70,22 @@ class EntryHandler(webapp.RequestHandler):
 
         id = sess['id']
         u = User.get_by_key_name(id)
-        if not u:
-            # TODO lookup name and check against list of allowed people
+        if u:
+            # Get default entries
+            results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s'" % (u.id))
+            crushes = [x.crush for x in results]
+
+            # Pad list
+            crushes += ['']*(10-len(crushes))
+        else:
+            # TODO new user - lookup name and check against list of allowed people
+            crushes = ['']*10
             u = User(key_name=id, id=id)
             u.save()
 
         # Generate response
-        args = dict(id=u.id)
+        errs = ['']*10
+        args = dict(id=u.id, v=crushes, errs=errs)
         self.response.out.write(template.render('entry.html', args))
 
     def post(self):
@@ -84,20 +94,42 @@ class EntryHandler(webapp.RequestHandler):
             self.response.out.write('You must be logged in')
             return
 
-        # TODO resolve dnd entries
+        errs = ['']*10
+        d = DNDLookup()
+        names = self.request.POST.getall('c')
+        for i in range(len(names)):
+            if names[i] == '':
+                continue
 
-        c1 = self.request.get('c1')
-        c2 = self.request.get('c2')
-        c3 = self.request.get('c3')
-        c4 = self.request.get('c4')
-        c5 = self.request.get('c5')
-        c6 = self.request.get('c6')
-        c7 = self.request.get('c7')
-        c8 = self.request.get('c8')
-        c9 = self.request.get('c9')
-        c10 = self.request.get('c10')
+            n = names[i]
+            c = Crush.get_by_key_name(n)
+            if not c:
+                # New crush
 
+                # DND resolve
+                dndnames = d.lookup(n)
+                if len(dndnames) == 0:
+                    errs[i] = 'Could not find this name in the DND'
+                elif len(dndnames) == 1:
+                    c = Crush(key_name=sess['id']+n, id=sess['id'], crush=dndnames[0])
+                    c.put()
+                else:
+                    links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=%s;return False;">%s</a>' % (i, x) for x in dndnames]
+                    errs[i] = 'Too many names, did you mean: ' + ', '.join(links)
 
+        # Display entry page, with errors, etc.
+
+        # Get default entries
+        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s'" % (u.id))
+        crushes = [x.crush for x in results]
+
+        # Pad list
+        crushes += ['']*(10-len(crushes))
+
+        args = dict(id=u.id, v=crushes, errs=errs)
+        self.response.out.write(template.render('entry.html', args))
+
+            
 def main():
     util.run_wsgi_app(webapp.WSGIApplication([
         (r"/", HomeHandler),
