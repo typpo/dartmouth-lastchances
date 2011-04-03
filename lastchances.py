@@ -8,7 +8,9 @@ import logging
 import wsgiref.handlers
 import os
 import cgi
+
 from cas import CASClient
+from appengine_utilities import sessions
 
 from django.utils import simplejson as json
 from google.appengine.ext import db
@@ -21,6 +23,7 @@ CAS_URL = 'https://login.dartmouth.edu/cas/'
 SERVICE_URL = 'http://localhost:8080'
 
 class User(db.Model):
+    id = db.StringProperty(required=True)
     created = db.DateTimeProperty(auto_now_add=True)
     updated = db.DateTimeProperty(auto_now=True)
 
@@ -30,20 +33,42 @@ class Crush(db.Model):
     crush = db.StringProperty(required=True)
 
 
-class HomeHandler(webapp.RequestHandler):
+# TODO abstract all session tracking to base handler
+
+class MainHandler(webapp.RequestHandler):
     def get(self):
+        # Login if necessary
         c = CASClient(CAS_URL, SERVICE_URL)
         id = c.Authenticate(self.request.get('ticket', None))
-        # TODO lookup, etc.
-        u = User(key_name=id)
-        u.save()
-        args = dict(id=id)
-        self.response.out.write(template.render('index.html', args))
+
+        sess = sessions.Session()
+        sess['id'] = id
+
+        self.redirect('/entry')
+
+class EntryHandler(webapp.RequestHandler):
+    def get(self): 
+        sess = sessions.Session()
+        if not 'id' in sess:
+            self.response.out.write('You must be logged in')
+            return
+
+        id = sess['id']
+        u = User.get_by_key_name(id)
+        if not u:
+            u = User(key_name=id, id=id)
+            u.save()
+
+        # Generate response
+        args = dict(id=u.id)
+        self.response.out.write(template.render('entry.html', args))
 
 
 def main():
+    # TODO replace get started with real home page with intro and link to main
     util.run_wsgi_app(webapp.WSGIApplication([
-        (r"/", HomeHandler),
+        (r"/", MainHandler),
+        (r"/entry", EntryHandler),
     ]))
 
 
