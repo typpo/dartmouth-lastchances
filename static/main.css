@@ -1,0 +1,60 @@
+a:link {
+    color: #AB0A32;
+}
+
+a.speciallink:link {
+    color: #08a600;
+}
+
+a.speciallink:visited {
+    color: #08a600;
+}
+
+a.speciallink:hover {
+    color: #220022;
+}
+
+a:visited {
+    color: #AB0A32;
+}
+
+a:hover {
+    color: #220022;
+}
+
+.body {
+    background-color: #eee;
+}
+
+.loud {
+    font-size: 24px;
+}
+
+.blurb {
+    font-size: 12px;
+}
+
+.h1 {
+    font-size: 23px;
+    font-weight: bold;
+}
+
+.footer {
+    text-align: center;
+    font-size: 12px;
+}
+
+.mainoutline {
+    font-family: "Trebuchet MS", sans-serif;
+    border-width: 1px;
+    border-style: solid;
+    border-color: #ddd;
+    width: 80%;
+    padding: 10px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.imagewrap {
+    padding: 5px 5px 5px 5px;
+}
