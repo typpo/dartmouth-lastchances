@@ -71,23 +71,14 @@ class EntryHandler(webapp.RequestHandler):
 
         id = sess['id']
         u = User.get_by_key_name(id)
-        if u:
-            # Get default entries
-            results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s'" % (sess['id']))
-            crushes = [x.crush for x in results]
-
-            # Pad list
-            crushes += ['']*(10-len(crushes))
-        else:
-            # TODO new user - lookup name and check against list of allowed people
-            crushes = ['']*10
+        if not u:
+            # new user
+            # TODO lookup name and check against list of allowed people
             u = User(key_name=id, id=id)
             u.save()
 
         # Generate response
-        errs = ['']*10
-        args = dict(id=sess['id'], v=crushes, errs=errs)
-        self.response.out.write(template.render('entry.html', args))
+        self.show_page()
 
 
     def post(self):
@@ -96,42 +87,47 @@ class EntryHandler(webapp.RequestHandler):
             self.response.out.write('You must be logged in')
             return
 
+        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (sess['id']))
+        orig_crushes = [x.crush for x in results]
+
         errs = ['']*10
         d = DNDLookup()
         names = self.request.POST.getall('c')
         dndnames = d.remote_lookup(names)
-        logging.warning(dndnames)
         i = 0
         for name in names:
             if names[i] == '':
-                # TODO deletion
-                i += 1
-                continue
-
-            logging.warning('processing ' + name)
-
-            # Check if it's already there
-            if name in dndnames and len(dndnames[name])==1:
-                c = Crush.get_by_key_name(sess['id']+dndnames[name][0]) 
+                # possible deletion
+                if i < len(orig_crushes):
+                    c = Crush.get_by_key_name(sess['id']+orig_crushes[i])
+                    if c:
+                        c.delete()
             else:
-                c = None
-
-            if not c:
-                # New crush
-                logging.warning('new crush!')
-                if len(dndnames[name]) == 0:
-                    errs[i] = 'Could not find this name in the DND'
-                elif len(dndnames[name]) == 1:
-                    # TODO memcache dnd lookup?
-                    c = Crush(key_name=sess['id']+dndnames[name][0], id=sess['id'], crush=dndnames[name][0])
-                    c.put()
+                # Check if it's already there
+                if name in dndnames and len(dndnames[name])==1:
+                    c = Crush.get_by_key_name(sess['id']+dndnames[name][0]) 
                 else:
-                    links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' % (i,x,x) for x in dndnames[name]]
-                    errs[i] = 'Too many names, did you mean: ' + ', '.join(links)
+                    c = None
 
-            i += 1
+                if not c:
+                    # New crush
+                    if len(dndnames[name]) == 0:
+                        errs[i] = 'Could not find this name in the DND'
+                    elif len(dndnames[name]) == 1:
+                        # TODO split keyname by non-dnd character
+                        c = Crush(key_name=sess['id']+dndnames[name][0], id=sess['id'], crush=dndnames[name][0])
+                        c.put()
+                    else:
+                        links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' % (i,x,x) for x in dndnames[name]]
+                        errs[i] = 'Too many names, did you mean: ' + ', '.join(links)
+                i += 1
 
+        self.show_page(errs=errs)
+
+
+    def show_page(self, errs=['']*10):
         # Display entry page, with errors, etc.
+        sess = sessions.Session()
 
         # Get default entries
         results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (sess['id']))
