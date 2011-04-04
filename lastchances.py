@@ -35,17 +35,26 @@ class Crush(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
 
 
-# TODO abstract all session handling to base handler
+# Handles sessions
+class BaseHandler(webapp.RequestHandler):
+    @property
+    def current_user(self):
+        if not hasattr(self, '_current_user'):
+            sess = sessions.Session()
+            if 'id' in sess:
+                self._current_user = sess['id']
+            else:
+                self._current_user = None
+        return self._current_user
 
-class HomeHandler(webapp.RequestHandler):
+class HomeHandler(BaseHandler):
     def get(self):
-        sess = sessions.Session()
         # TODO show matches so far or other interesting statistics
-        args = dict(logged_in=True if 'id' in sess else False)
+        args = dict(logged_in=True if self.current_user else False)
         self.response.out.write(template.render('index.html', args))
 
 
-class LoginHandler(webapp.RequestHandler):
+class LoginHandler(BaseHandler):
     def get(self):
         # Login if necessary
         c = CASClient(CAS_URL, SERVICE_URL)
@@ -55,6 +64,7 @@ class LoginHandler(webapp.RequestHandler):
             sess = sessions.Session()
             try:
                 sess['id'] = id[:id.find('@')]
+                sess['id'].put()
                 self.redirect('/entry')
                 return
             except:
@@ -62,14 +72,13 @@ class LoginHandler(webapp.RequestHandler):
         self.response.out.write('Login failed')
         
 
-class EntryHandler(webapp.RequestHandler):
+class EntryHandler(BaseHandler):
     def get(self): 
-        sess = sessions.Session()
-        if not 'id' in sess:
+        if not self.current_user:
             self.response.out.write('You must be logged in')
             return
 
-        id = sess['id']
+        id = self.current_user
         u = User.get_by_key_name(id)
         if not u:
             # new user
@@ -82,12 +91,11 @@ class EntryHandler(webapp.RequestHandler):
 
 
     def post(self):
-        sess = sessions.Session()
-        if not 'id' in sess:
+        if not self.current_user:
             self.response.out.write('You must be logged in')
             return
 
-        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (sess['id']))
+        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
         orig_crushes = [x.crush for x in results]
 
         errs = ['']*10
@@ -99,13 +107,13 @@ class EntryHandler(webapp.RequestHandler):
             if names[i] == '':
                 # possible deletion
                 if i < len(orig_crushes):
-                    c = Crush.get_by_key_name(sess['id']+orig_crushes[i])
+                    c = Crush.get_by_key_name(self.current_user+orig_crushes[i])
                     if c:
                         c.delete()
             else:
                 # Check if it's already there
                 if name in dndnames and len(dndnames[name])==1:
-                    c = Crush.get_by_key_name(sess['id']+dndnames[name][0]) 
+                    c = Crush.get_by_key_name(self.current_user+dndnames[name][0]) 
                 else:
                     c = None
 
@@ -115,7 +123,7 @@ class EntryHandler(webapp.RequestHandler):
                         errs[i] = 'Could not find this name in the DND'
                     elif len(dndnames[name]) == 1:
                         # TODO split keyname by non-dnd character
-                        c = Crush(key_name=sess['id']+dndnames[name][0], id=sess['id'], crush=dndnames[name][0])
+                        c = Crush(key_name=self.current_user+dndnames[name][0], id=self.current_user, crush=dndnames[name][0])
                         c.put()
                     else:
                         links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' % (i,x,x) for x in dndnames[name]]
@@ -127,16 +135,15 @@ class EntryHandler(webapp.RequestHandler):
 
     def show_page(self, errs=['']*10):
         # Display entry page, with errors, etc.
-        sess = sessions.Session()
 
         # Get default entries
-        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (sess['id']))
+        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
         crushes = [x.crush for x in results]
 
         # Pad list
         crushes += ['']*(10-len(crushes))
 
-        args = dict(id=sess['id'], v=crushes, errs=errs)
+        args = dict(id=self.current_user, v=crushes, errs=errs)
         self.response.out.write(template.render('entry.html', args))
 
             
