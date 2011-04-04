@@ -102,7 +102,7 @@ class EntryHandler(BaseHandler):
         results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
         orig_crushes = [x.crush for x in results]
 
-        errs = ['']*10
+        comments = ['']*10
         d = DNDRemoteLookup()
         names = self.request.POST.getall('c')
         dndnames = d.lookup(names)
@@ -124,20 +124,21 @@ class EntryHandler(BaseHandler):
                 if not c:
                     # New crush
                     if len(dndnames[name]) == 0:
-                        errs[i] = 'Could not find this name in the DND'
+                        comments[i] = 'Could not find this name in the DND'
                     elif len(dndnames[name]) == 1:
                         # TODO split keyname by non-dnd character
                         c = Crush(key_name=self.current_user+dndnames[name][0], id=self.current_user, crush=dndnames[name][0])
                         c.put()
+                        comments[i] = 'Saved'
                     else:
                         links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' % (i,x,x) for x in dndnames[name]]
-                        errs[i] = 'Did you mean: ' + ', '.join(links)
+                        comments[i] = 'Did you mean: ' + ', '.join(links)
             i += 1
 
-        self.show_page(errs=errs)
+        self.show_page(comments=comments)
 
 
-    def show_page(self, errs=['']*10):
+    def show_page(self, comments=['']*10):
         # Display entry page, with errors, etc.
 
         # Get default entries
@@ -147,7 +148,7 @@ class EntryHandler(BaseHandler):
         # Pad list
         crushes += ['']*(10-len(crushes))
 
-        args = dict(id=self.current_user, v=crushes, errs=errs)
+        args = dict(id=self.current_user, v=crushes, comments=comments)
         self.response.out.write(template.render('templates/entry.html', args))
 
             

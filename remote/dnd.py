@@ -42,7 +42,8 @@ class DNDLookup:
             chunk = self.s.recv(512)
             resp += chunk
             if chunk == '' or chunk.endswith('200 Ok.\r\n') \
-               or chunk.endswith('201 Additional matching records not returned.\r\n'):
+               or chunk.endswith('201 Additional matching records not returned.\r\n') \
+               or chunk.endswith('520 No match for that name.\r\n'):
                 break
 
         lines  = resp.splitlines()
