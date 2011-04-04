@@ -56,7 +56,7 @@ class HomeHandler(BaseHandler):
     def get(self):
         # TODO show matches so far or other interesting statistics
         args = dict(logged_in=True if self.current_user else False)
-        self.response.out.write(template.render('index.html', args))
+        self.response.out.write(template.render('templates/index.html', args))
 
 
 class LoginHandler(BaseHandler):
@@ -148,7 +148,7 @@ class EntryHandler(BaseHandler):
         crushes += ['']*(10-len(crushes))
 
         args = dict(id=self.current_user, v=crushes, errs=errs)
-        self.response.out.write(template.render('entry.html', args))
+        self.response.out.write(template.render('templates/entry.html', args))
 
             
 def main():
