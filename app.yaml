@@ -7,6 +7,9 @@ handlers:
 - url: /static
   static_dir: static
 
+- url: /pages
+  static_dir: pages
+
 - url: /.*
   script: lastchances.py
 

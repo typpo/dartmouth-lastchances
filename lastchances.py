@@ -20,8 +20,13 @@ from google.appengine.ext.webapp import util
 from google.appengine.ext.webapp import template
 from google.appengine.api import mail
 
+from settings import DEBUG
+
 CAS_URL = 'https://login.dartmouth.edu/cas/'
-SERVICE_URL = 'http://localhost:8080/login'
+if DEBUG:
+    SERVICE_URL = 'http://localhost:8080/login'
+else:
+    SERVICE_URL = 'http://dartmouthlastchances.appspot.com/login'
 
 class User(db.Model):
     id = db.StringProperty(required=True)
