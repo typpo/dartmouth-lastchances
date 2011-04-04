@@ -32,6 +32,7 @@ class User(db.Model):
 class Crush(db.Model):
     id = db.StringProperty(required=True)
     crush = db.StringProperty(required=True)
+    created = db.DateTimeProperty(auto_now_add=True)
 
 
 # TODO abstract all session handling to base handler
@@ -72,7 +73,7 @@ class EntryHandler(webapp.RequestHandler):
         u = User.get_by_key_name(id)
         if u:
             # Get default entries
-            results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s'" % (u.id))
+            results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s'" % (sess['id']))
             crushes = [x.crush for x in results]
 
             # Pad list
@@ -85,8 +86,9 @@ class EntryHandler(webapp.RequestHandler):
 
         # Generate response
         errs = ['']*10
-        args = dict(id=u.id, v=crushes, errs=errs)
+        args = dict(id=sess['id'], v=crushes, errs=errs)
         self.response.out.write(template.render('entry.html', args))
+
 
     def post(self):
         sess = sessions.Session()
@@ -97,36 +99,48 @@ class EntryHandler(webapp.RequestHandler):
         errs = ['']*10
         d = DNDLookup()
         names = self.request.POST.getall('c')
-        for i in range(len(names)):
+        dndnames = d.remote_lookup(names)
+        logging.warning(dndnames)
+        i = 0
+        for name in names:
             if names[i] == '':
+                # TODO deletion
+                i += 1
                 continue
 
-            n = names[i]
-            c = Crush.get_by_key_name(n)
+            logging.warning('processing ' + name)
+
+            # Check if it's already there
+            if name in dndnames and len(dndnames[name])==1:
+                c = Crush.get_by_key_name(sess['id']+dndnames[name][0]) 
+            else:
+                c = None
+
             if not c:
                 # New crush
-
-                # DND resolve
-                dndnames = d.lookup(n)
-                if len(dndnames) == 0:
+                logging.warning('new crush!')
+                if len(dndnames[name]) == 0:
                     errs[i] = 'Could not find this name in the DND'
-                elif len(dndnames) == 1:
-                    c = Crush(key_name=sess['id']+n, id=sess['id'], crush=dndnames[0])
+                elif len(dndnames[name]) == 1:
+                    # TODO memcache dnd lookup?
+                    c = Crush(key_name=sess['id']+dndnames[name][0], id=sess['id'], crush=dndnames[name][0])
                     c.put()
                 else:
-                    links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=%s;return False;">%s</a>' % (i, x) for x in dndnames]
+                    links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' % (i,x,x) for x in dndnames[name]]
                     errs[i] = 'Too many names, did you mean: ' + ', '.join(links)
+
+            i += 1
 
         # Display entry page, with errors, etc.
 
         # Get default entries
-        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s'" % (u.id))
+        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (sess['id']))
         crushes = [x.crush for x in results]
 
         # Pad list
         crushes += ['']*(10-len(crushes))
 
-        args = dict(id=u.id, v=crushes, errs=errs)
+        args = dict(id=sess['id'], v=crushes, errs=errs)
         self.response.out.write(template.render('entry.html', args))
 
             
