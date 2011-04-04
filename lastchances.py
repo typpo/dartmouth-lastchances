@@ -120,7 +120,7 @@ class EntryHandler(webapp.RequestHandler):
                     else:
                         links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' % (i,x,x) for x in dndnames[name]]
                         errs[i] = 'Too many names, did you mean: ' + ', '.join(links)
-                i += 1
+            i += 1
 
         self.show_page(errs=errs)
 
