@@ -11,7 +11,7 @@ import cgi
 
 from cas import CASClient
 from appengine_utilities import sessions
-from dnd import DNDLookup
+from dndremote import DNDRemoteLookup
 
 from django.utils import simplejson as json
 from google.appengine.ext import db
@@ -64,7 +64,6 @@ class LoginHandler(BaseHandler):
             sess = sessions.Session()
             try:
                 sess['id'] = id[:id.find('@')]
-                sess['id'].put()
                 self.redirect('/entry')
                 return
             except:
@@ -99,9 +98,9 @@ class EntryHandler(BaseHandler):
         orig_crushes = [x.crush for x in results]
 
         errs = ['']*10
-        d = DNDLookup()
+        d = DNDRemoteLookup()
         names = self.request.POST.getall('c')
-        dndnames = d.remote_lookup(names)
+        dndnames = d.lookup(names)
         i = 0
         for name in names:
             if names[i] == '':
@@ -127,7 +126,7 @@ class EntryHandler(BaseHandler):
                         c.put()
                     else:
                         links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' % (i,x,x) for x in dndnames[name]]
-                        errs[i] = 'Too many names, did you mean: ' + ', '.join(links)
+                        errs[i] = 'Did you mean: ' + ', '.join(links)
             i += 1
 
         self.show_page(errs=errs)

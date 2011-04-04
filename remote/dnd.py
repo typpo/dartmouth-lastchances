@@ -1,11 +1,11 @@
+#!/usr/bin/env python
+
 import socket
-import logging
 import urllib
-from google.appengine.api.urlfetch import fetch
+import sys
 
 DND_SERVER = 'dnd.dartmouth.edu'
 DND_PORT = 902
-REMOTE_LOOKUP = 'http://hacktown.cs.dartmouth.edu/lastchances/lookup.php?names='
 
 class DNDLookup:
     
@@ -28,25 +28,12 @@ class DNDLookup:
         return True
 
 
-    def remote_lookup(self, names):
-        less = [x for x in names if x != '']
-        l = fetch(REMOTE_LOOKUP + urllib.quote(','.join(less)), deadline=15).content
-        results = l.split('#')
-        ret = {}
-        i = 0
-        for result in results:
-            lines = result.splitlines()
-            ret[less[i]] = lines
-            i += 1
-        return ret
-
-
     def lookup(self, name):
         if not self.connect():
             print 'DND: Not connected to server'
             return False
 
-        if self.s.send('LOOKUP %s, email\r\n' % (name)) == 0:
+        if self.s.send('LOOKUP %s, name\r\n' % (name)) == 0:
             print 'DND: Lookup failed'
             return False
 
@@ -63,3 +50,14 @@ class DNDLookup:
 
     def close(self):
         self.s.close()
+
+
+def main():
+    d = DNDLookup()
+    print '\n'.join(d.lookup(sys.argv[1]))
+    d.close()
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 2:
+        main()
