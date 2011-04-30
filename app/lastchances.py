@@ -79,19 +79,20 @@ class LoginHandler(BaseHandler):
 class EntryHandler(BaseHandler):
     def get(self): 
         if not self.current_user:
+            # TODO redirect
             self.response.out.write('You must be logged in')
             return
 
         id = self.current_user
         u = User.get_by_key_name(id)
         if not u:
-            # new user
+            # We have a new user
             # TODO lookup name and check against list of allowed people
             u = User(key_name=id, id=id)
             u.save()
 
         # Generate response
-        self.show_page()
+        self.render_main()
 
 
     def post(self):
@@ -102,51 +103,72 @@ class EntryHandler(BaseHandler):
         results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
         orig_crushes = [x.crush for x in results]
 
-        comments = ['']*10
         d = DNDRemoteLookup()
         names = self.request.POST.getall('c')
+        orig = self.request.POST.getall('o')
+
+        # First handle deletion
+        for crush in orig_crushes:
+            if crush not in names:
+                c = Crush.get_by_key_name(self.current_user+crush)
+                if c:
+                    c.delete()
+
+        # Now add anything new
         dndnames = d.lookup(names)
+        new_crushes = []
+        comments = []
         i = 0
         for name in names:
-            if names[i] == '':
-                # possible deletion
-                if i < len(orig_crushes):
-                    c = Crush.get_by_key_name(self.current_user+orig_crushes[i])
-                    if c:
-                        c.delete()
+            if name == '':
+                i+=1
+                continue
+
+            # Check if it's already there
+            if name in dndnames and len(dndnames[name])==1:
+                c = Crush.get_by_key_name(self.current_user+dndnames[name][0]) 
             else:
-                # Check if it's already there
-                if name in dndnames and len(dndnames[name])==1:
-                    c = Crush.get_by_key_name(self.current_user+dndnames[name][0]) 
+                c = None
+
+            if c:
+                comments.append('')
+                new_crushes.append(dndnames[name][0])
+            else:
+                # New crush
+                if len(dndnames[name]) == 0:
+                    # No good
+                    comments.append('Couldn\'t find name in DND')
+                    new_crushes.append('')
+                elif len(dndnames[name]) == 1:
+                    # Add crush
+                    resolved_name = dndnames[name][0]
+                    # TODO split keyname by some non-dnd character
+                    c = Crush(key_name=self.current_user+resolved_name, id=self.current_user, crush=resolved_name)
+                    c.put()
+                    comments.append('Saved')
+                    new_crushes.append(resolved_name)
                 else:
-                    c = None
+                    # Unspecific - let them choose
+                    links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' \
+                             % (i,x,x) for x in dndnames[name]]
+                    comments.append('Did you mean: ' + ', '.join(links))
+                    new_crushes.append('')
 
-                if not c:
-                    # New crush
-                    if len(dndnames[name]) == 0:
-                        comments[i] = 'Could not find this name in the DND'
-                    elif len(dndnames[name]) == 1:
-                        # TODO split keyname by non-dnd character
-                        c = Crush(key_name=self.current_user+dndnames[name][0], id=self.current_user, crush=dndnames[name][0])
-                        c.put()
-                        comments[i] = 'Saved'
-                    else:
-                        links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' % (i,x,x) for x in dndnames[name]]
-                        comments[i] = 'Did you mean: ' + ', '.join(links)
-            i += 1
-
-        self.show_page(comments=comments)
+        i += 1
+        self.render_main(crushes=new_crushes, comments=comments)
 
 
-    def show_page(self, comments=['']*10):
+    def render_main(self, crushes=None, comments=['']*10):
         # Display entry page, with errors, etc.
 
-        # Get default entries
-        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
-        crushes = [x.crush for x in results]
+        if not crushes:
+            # Get default entries
+            results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
+            crushes = [x.crush for x in results]
 
-        # Pad list
+        # Pad lists
         crushes += ['']*(10-len(crushes))
+        comments += ['']*(10-len(comments))
 
         args = dict(id=self.current_user, v=crushes, comments=comments)
         self.response.out.write(template.render('templates/entry.html', args))
