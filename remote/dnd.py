@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+#
+# DND lookup for Python (for when dndlookup isn't available)
+#
 
 import socket
 import urllib
