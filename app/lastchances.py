@@ -27,6 +27,7 @@ if DEBUG:
     SERVICE_URL = 'http://localhost:8080/login'
 else:
     SERVICE_URL = 'http://dartmouthlastchances.appspot.com/login'
+LOGOUT_URL = 'https://login.dartmouth.edu/cas/logout?service='+SERVICE_URL
 
 class User(db.Model):
     id = db.StringProperty(required=True)
@@ -55,7 +56,7 @@ class BaseHandler(webapp.RequestHandler):
 class HomeHandler(BaseHandler):
     def get(self):
         # TODO show matches so far or other interesting statistics
-        args = dict(logged_in=True if self.current_user else False)
+        args = dict(user=self.current_user, logout_url=LOGOUT_URL)
         self.response.out.write(template.render('templates/index.html', args))
 
 
@@ -87,7 +88,7 @@ class EntryHandler(BaseHandler):
         u = User.get_by_key_name(id)
         if not u:
             # We have a new user
-            # TODO lookup name and check against list of allowed people
+            # TODO check name against list of allowed people
             u = User(key_name=id, id=id)
             u.save()
 
@@ -97,7 +98,8 @@ class EntryHandler(BaseHandler):
 
     def post(self):
         if not self.current_user:
-            self.response.out.write('You must be logged in')
+            args = dict(user=self.current_user, logout_url=LOGOUT_URL)
+            self.response.out.write(template.render('templates/index.html', args))
             return
 
         results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
@@ -126,7 +128,7 @@ class EntryHandler(BaseHandler):
 
             # Check if it's already there
             if name in dndnames and len(dndnames[name])==1:
-                c = Crush.get_by_key_name(self.current_user+dndnames[name][0]) 
+                c = Crush.get_by_key_name(self.current_user+':'+dndnames[name][0]) 
             else:
                 c = None
 
@@ -142,8 +144,7 @@ class EntryHandler(BaseHandler):
                 elif len(dndnames[name]) == 1:
                     # Add crush
                     resolved_name = dndnames[name][0]
-                    # TODO split keyname by some non-dnd character
-                    c = Crush(key_name=self.current_user+resolved_name, id=self.current_user, crush=resolved_name)
+                    c = Crush(key_name=self.current_user+':'+resolved_name, id=self.current_user, crush=resolved_name)
                     c.put()
                     comments.append('Saved')
                     new_crushes.append(resolved_name)
@@ -170,8 +171,13 @@ class EntryHandler(BaseHandler):
         crushes += ['']*(10-len(crushes))
         comments += ['']*(10-len(comments))
 
-        args = dict(id=self.current_user, v=crushes, comments=comments)
+        args = dict(id=self.current_user, v=crushes, comments=comments, logout_url=LOGOUT_URL)
         self.response.out.write(template.render('templates/entry.html', args))
+
+
+class MatchHandler(webapp.RequestHandler):
+    def get(self):
+        pass
 
             
 def main():
@@ -179,6 +185,7 @@ def main():
         (r"/", HomeHandler),
         (r"/login", LoginHandler),
         (r"/entry", EntryHandler),
+        (r"/match", MatchHandler),
     ]))
 
 

@@ -2,7 +2,9 @@ import logging
 import urllib
 from google.appengine.api.urlfetch import fetch
 
+# Was too slow, but probably better now after wscgi fix:
 #REMOTE_LOOKUP = 'http://hacktown.cs.dartmouth.edu/lastchances/lookup.php?names='
+
 REMOTE_LOOKUP = 'http://ianww.com/dnd/lookup.php?names='
 
 class DNDRemoteLookup:
