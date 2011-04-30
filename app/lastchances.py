@@ -177,7 +177,29 @@ class EntryHandler(BaseHandler):
 
 class MatchHandler(webapp.RequestHandler):
     def get(self):
-        pass
+        crushes = Crush.all()
+        # Create dict, keyed by crusher, value crushee
+        d = {}
+        for entry in crushes:
+            key = entry.id + ':' + entry.crush
+            d[key] = entry
+
+        for key in d:
+            matchkey = d[key].crush+ ':' + d[key].id
+            # If there's a match, we expect to see this key
+            if matchkey in d:
+                self.response.out.write('%s matches %s!<br>\n' % (d[key].id, d[key].crush))
+
+        self.response.out.write('Done')
+
+
+class TestHandler(webapp.RequestHandler):
+    def get(self):
+        name = self.request.get('name')
+        crush = self.request.get('crush')
+        c = Crush(key_name=name+':'+crush, id=name, crush=crush)
+        c.put()
+
 
             
 def main():
@@ -186,6 +208,7 @@ def main():
         (r"/login", LoginHandler),
         (r"/entry", EntryHandler),
         (r"/match", MatchHandler),
+        (r"/addtestcrush", TestHandler),
     ]))
 
 
