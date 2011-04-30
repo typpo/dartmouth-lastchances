@@ -103,7 +103,6 @@ class EntryHandler(BaseHandler):
         results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
         orig_crushes = [x.crush for x in results]
 
-        d = DNDRemoteLookup()
         names = self.request.POST.getall('c')
         orig = self.request.POST.getall('o')
 
@@ -115,6 +114,7 @@ class EntryHandler(BaseHandler):
                     c.delete()
 
         # Now add anything new
+        d = DNDRemoteLookup()
         dndnames = d.lookup(names)
         new_crushes = []
         comments = []
@@ -153,8 +153,8 @@ class EntryHandler(BaseHandler):
                              % (i,x,x) for x in dndnames[name]]
                     comments.append('Did you mean: ' + ', '.join(links))
                     new_crushes.append('')
+            i += 1
 
-        i += 1
         self.render_main(crushes=new_crushes, comments=comments)
 
 
