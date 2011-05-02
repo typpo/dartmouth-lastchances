@@ -14,10 +14,10 @@
             </p>
 
             <p>
-            {% if self.current_user %}
-            Hi, {{self.current_user}}.  <a href="/entry">Edit your picks</a>
-            <br><br>
-            <a href="{{logout_url}}">Log out</a>
+            {% if user %}
+            Hi, {{user.id}}.  <a href="/entry">Edit your picks</a>
+            <br>
+            (<a href="{{logout_url}}">Log out</a>)
             {% else %}
             <a href="/login">Login</a>
             {% endif %}
