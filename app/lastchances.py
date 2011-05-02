@@ -21,6 +21,7 @@ from google.appengine.ext.webapp import template
 from google.appengine.api import mail
 
 from settings import DEBUG
+from settings import CLASS_YEAR
 
 CAS_URL = 'https://login.dartmouth.edu/cas/'
 if DEBUG:
@@ -100,7 +101,16 @@ class EntryHandler(BaseHandler):
         u = User.get_by_key_name(id)
         if not u:
             # We have a new user
-            # TODO check name against list of allowed people
+
+            # Make sure it's the correct class year
+            d = DNDRemoteLookup()
+            dndnames = d.lookup(id, CLASS_YEAR)
+            if len(dndnames[id]) != 1:
+                self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
+                return
+
+
+            # Add new user
             u = User(key_name=id, id=id)
             u.save()
 
@@ -129,7 +139,7 @@ class EntryHandler(BaseHandler):
 
         # Now add anything new
         d = DNDRemoteLookup()
-        dndnames = d.lookup(names)
+        dndnames = d.lookup(names, CLASS_YEAR)
         new_crushes = []
         comments = []
         i = 0
@@ -151,7 +161,7 @@ class EntryHandler(BaseHandler):
                 # New crush
                 if len(dndnames[name]) == 0:
                     # No good
-                    comments.append('Couldn\'t find name in DND')
+                    comments.append('DND couldn\'t find anyone by this name in your year')
                     new_crushes.append('')
                 elif len(dndnames[name]) == 1:
                     # Add crush

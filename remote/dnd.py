@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# DND lookup for Python (for when dndlookup isn't available)
+# DND lookup script restricted to class year
 #
 
 import socket
@@ -31,12 +31,12 @@ class DNDLookup:
         return True
 
 
-    def lookup(self, name):
+    def lookup(self, name, year=''):
         if not self.connect():
             print 'DND: Not connected to server'
             return False
 
-        if self.s.send('LOOKUP %s, name\r\n' % (name)) == 0:
+        if self.s.send("LOOKUP %s %s, name deptclass\r\n" % (name, year)) == 0:
             print 'DND: Lookup failed'
             return False
 
@@ -50,6 +50,10 @@ class DNDLookup:
                 break
 
         lines  = resp.splitlines()
+
+        # skip every other because it's a deptclass entry
+        lines = [lines[i] for i in range(1, len(lines), 2)]
+
         return [l[4:] for l in lines if l.startswith('110 ')]
 
     def close(self):
@@ -58,10 +62,13 @@ class DNDLookup:
 
 def main():
     d = DNDLookup()
-    print '\n'.join(d.lookup(sys.argv[1]))
+    if len(sys.argv) == 2:
+        print '\n'.join(d.lookup(sys.argv[1]))
+    else:
+        print '\n'.join(d.lookup(sys.argv[1], sys.argv[2]))
     d.close()
 
 
 if __name__ == '__main__':
-    if len(sys.argv) == 2:
+    if len(sys.argv) == 2 or len(sys.argv) == 3:
         main()

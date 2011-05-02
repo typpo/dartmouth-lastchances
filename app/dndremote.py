@@ -7,14 +7,14 @@ from google.appengine.api.urlfetch import fetch
 #REMOTE_LOOKUP = 'http://hacktown.cs.dartmouth.edu/lastchances/lookup.php?names='
 
 # So I set up lookup on my own server...
-REMOTE_LOOKUP = 'http://ianww.com/dnd/lookup.php?names='
+REMOTE_LOOKUP = 'http://ianww.com/dnd/lookup.php?names=%s&year=%s'
 
 class DNDRemoteLookup:
 
-    def lookup(self, names):
+    def lookup(self, names, year):
         less = [x for x in names if x != '']
         if len(less) > 0:
-            l = fetch(REMOTE_LOOKUP + urllib.quote(','.join(less)), deadline=15).content
+            l = fetch(REMOTE_LOOKUP % (urllib.quote(','.join(less)), year), deadline=15).content
             results = l.split('#')
             ret = {}
             i = 0
