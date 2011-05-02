@@ -41,6 +41,18 @@ class Crush(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
 
 
+class Match(db.Model):
+    name1 = db.StringProperty(required=True)
+    name2 = db.StringProperty(required=True)
+    email1 = db.StringProperty(required=True)
+    email2 = db.StringProperty(required=True)
+
+
+class Stats(db.Model):
+    id = db.StringProperty(required=True)
+    matches = db.IntegerProperty(required=True)
+
+
 # Handles sessions
 class BaseHandler(webapp.RequestHandler):
     @property
@@ -111,7 +123,7 @@ class EntryHandler(BaseHandler):
         # First handle deletion
         for crush in orig_crushes:
             if crush not in names:
-                c = Crush.get_by_key_name(self.current_user+crush)
+                c = Crush.get_by_key_name(self.current_user+':'+crush)
                 if c:
                     c.delete()
 
@@ -199,7 +211,6 @@ class TestHandler(webapp.RequestHandler):
         crush = self.request.get('crush')
         c = Crush(key_name=name+':'+crush, id=name, crush=crush)
         c.put()
-
 
             
 def main():

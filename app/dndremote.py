@@ -2,9 +2,11 @@ import logging
 import urllib
 from google.appengine.api.urlfetch import fetch
 
-# Was too slow, but probably better now after wscgi fix:
+# This lookup was too slow - took 15+ sec and often timed out.
+# Probably better now after the apache wscgi fix:
 #REMOTE_LOOKUP = 'http://hacktown.cs.dartmouth.edu/lastchances/lookup.php?names='
 
+# So I set up lookup on my own server...
 REMOTE_LOOKUP = 'http://ianww.com/dnd/lookup.php?names='
 
 class DNDRemoteLookup:
