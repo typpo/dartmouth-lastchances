@@ -30,8 +30,10 @@ else:
     SERVICE_URL = 'http://dartmouthlastchances.appspot.com/login'
 LOGOUT_URL = 'https://login.dartmouth.edu/cas/logout?service='+SERVICE_URL
 
+
 class User(db.Model):
     id = db.StringProperty(required=True)
+    email = db.StringProperty(required=True)
     created = db.DateTimeProperty(auto_now_add=True)
     updated = db.DateTimeProperty(auto_now=True)
 
@@ -61,10 +63,44 @@ class BaseHandler(webapp.RequestHandler):
         if not hasattr(self, '_current_user'):
             sess = sessions.Session()
             if 'id' in sess:
-                self._current_user = sess['id']
+                u = User.get_by_key_name(sess['id'])
+                if not u:
+                    # We have a new user
+                    id = sess['id']
+
+                    # Make sure it's the correct class year
+                    d = DNDRemoteLookup()
+                    dndnames = d.lookup([id], CLASS_YEAR)
+                    if id not in dndnames:
+                        self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
+                        return
+
+                    # Add new user
+                    email = id.replace(' ','.').replace('..', '.') + '@dartmouth.edu'
+                    u = User(key_name=id, id=id, email=email)
+                    u.save()
+
+                self._current_user = u
             else:
                 self._current_user = None
         return self._current_user
+
+
+    def render_main(self, crushes=None, comments=['']*10):
+        # Display entry page, with errors, etc.
+
+        if not crushes:
+            # Get default entries
+            results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user.id))
+            crushes = [x.crush for x in results]
+
+        # Pad lists
+        crushes += ['']*(10-len(crushes))
+        comments += ['']*(10-len(comments))
+
+        args = dict(id=self.current_user.id, v=crushes, comments=comments, logout_url=LOGOUT_URL, email=self.current_user.email)
+        self.response.out.write(template.render('templates/entry.html', args))
+
 
 class HomeHandler(BaseHandler):
     def get(self):
@@ -97,22 +133,11 @@ class EntryHandler(BaseHandler):
             self.response.out.write('You must be logged in')
             return
 
-        id = self.current_user
+        id = self.current_user.id
         u = User.get_by_key_name(id)
         if not u:
-            # We have a new user
-
-            # Make sure it's the correct class year
-            d = DNDRemoteLookup()
-            dndnames = d.lookup(id, CLASS_YEAR)
-            if len(dndnames[id]) != 1:
-                self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
-                return
-
-
-            # Add new user
-            u = User(key_name=id, id=id)
-            u.save()
+            self.response.out.write('Something went wrong, re-login')
+            return
 
         # Generate response
         self.render_main()
@@ -124,7 +149,7 @@ class EntryHandler(BaseHandler):
             self.response.out.write(template.render('templates/index.html', args))
             return
 
-        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
+        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user.id))
         orig_crushes = [x.crush for x in results]
 
         names = self.request.POST.getall('c')
@@ -133,7 +158,7 @@ class EntryHandler(BaseHandler):
         # First handle deletion
         for crush in orig_crushes:
             if crush not in names:
-                c = Crush.get_by_key_name(self.current_user+':'+crush)
+                c = Crush.get_by_key_name(self.current_user.id+':'+crush)
                 if c:
                     c.delete()
 
@@ -150,7 +175,7 @@ class EntryHandler(BaseHandler):
 
             # Check if it's already there
             if name in dndnames and len(dndnames[name])==1:
-                c = Crush.get_by_key_name(self.current_user+':'+dndnames[name][0]) 
+                c = Crush.get_by_key_name(self.current_user.id+':'+dndnames[name][0]) 
             else:
                 c = None
 
@@ -166,7 +191,7 @@ class EntryHandler(BaseHandler):
                 elif len(dndnames[name]) == 1:
                     # Add crush
                     resolved_name = dndnames[name][0]
-                    c = Crush(key_name=self.current_user+':'+resolved_name, id=self.current_user, crush=resolved_name)
+                    c = Crush(key_name=self.current_user.id+':'+resolved_name, id=self.current_user.id, crush=resolved_name)
                     c.put()
                     comments.append('Saved')
                     new_crushes.append(resolved_name)
@@ -181,20 +206,12 @@ class EntryHandler(BaseHandler):
         self.render_main(crushes=new_crushes, comments=comments)
 
 
-    def render_main(self, crushes=None, comments=['']*10):
-        # Display entry page, with errors, etc.
-
-        if not crushes:
-            # Get default entries
-            results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user))
-            crushes = [x.crush for x in results]
-
-        # Pad lists
-        crushes += ['']*(10-len(crushes))
-        comments += ['']*(10-len(comments))
-
-        args = dict(id=self.current_user, v=crushes, comments=comments, logout_url=LOGOUT_URL)
-        self.response.out.write(template.render('templates/entry.html', args))
+class EmailHandler(BaseHandler):
+    def post(self): 
+        if self.current_user:
+            self.current_user.email = self.request.get('email')     # empty string by default
+            self.current_user.put()
+            self.render_main()
 
 
 class MatchHandler(webapp.RequestHandler):
@@ -229,6 +246,7 @@ def main():
         (r"/login", LoginHandler),
         (r"/entry", EntryHandler),
         (r"/match", MatchHandler),
+        (r"/email", EmailHandler),
         (r"/addtestcrush", TestHandler),
     ]))
 
