@@ -52,8 +52,9 @@ class Match(db.Model):
 
 
 class Stats(db.Model):
-    id = db.StringProperty(required=True)
-    matches = db.IntegerProperty(required=True)
+    num_matches = db.IntegerProperty(required=True)
+    num_participants = db.IntegerProperty(required=True)
+    num_entries = db.IntegerProperty(required=True)
 
 
 # Handles sessions
@@ -217,17 +218,24 @@ class EmailHandler(BaseHandler):
 class MatchHandler(webapp.RequestHandler):
     def get(self):
         crushes = Crush.all()
+
         # Create dict, keyed by crusher, value crushee
         d = {}
         for entry in crushes:
             key = entry.id + ':' + entry.crush
             d[key] = entry
 
+        num = 0
         for key in d:
             matchkey = d[key].crush+ ':' + d[key].id
             # If there's a match, we expect to see this key
             if matchkey in d:
                 self.response.out.write('%s matches %s!<br>\n' % (d[key].id, d[key].crush))
+                num += 1
+
+        users = User.all()
+        s = Stats(key_name='default', num_matches=num, num_entries=len(d), num_participants=len(users))
+        s.put()
 
         self.response.out.write('Done')
 
