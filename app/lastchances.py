@@ -73,6 +73,7 @@ class BaseHandler(webapp.RequestHandler):
                     d = DNDRemoteLookup()
                     dndnames = d.lookup([id], CLASS_YEAR)
                     if id not in dndnames:
+                        # TODO fix this
                         self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
                         return
 
@@ -131,13 +132,13 @@ class EntryHandler(BaseHandler):
     def get(self): 
         if not self.current_user:
             # TODO redirect
-            self.response.out.write('You must be logged in')
+            self.response.out.write('You are not logged in.  <a href="/">Home</a>')
             return
 
         id = self.current_user.id
         u = User.get_by_key_name(id)
         if not u:
-            self.response.out.write('Something went wrong, re-login')
+            self.response.out.write('Something went wrong, please try again.  <a href="/">Home</a>')
             return
 
         # Generate response
