@@ -28,7 +28,9 @@ if DEBUG:
     SERVICE_URL = 'http://localhost:8080/login'
 else:
     SERVICE_URL = 'http://dartmouthlastchances.appspot.com/login'
-LOGOUT_URL = 'https://login.dartmouth.edu/cas/logout?service='+SERVICE_URL
+
+LOGOUT_URL = '/logout'
+CAS_LOGOUT_URL = 'https://login.dartmouth.edu/cas/logout?service='+SERVICE_URL
 
 
 class User(db.Model):
@@ -75,7 +77,8 @@ class BaseHandler(webapp.RequestHandler):
                     if id not in dndnames:
                         # TODO fix this
                         self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
-                        return
+                        self._current_user = None
+                        return None
 
                     # Add new user
                     email = id.replace(' ','.').replace('..', '.') + '@dartmouth.edu'
@@ -216,6 +219,12 @@ class EmailHandler(BaseHandler):
             self.render_main()
 
 
+class LogoutHandler(BaseHandler):
+    def get(self):
+        sessions.Session().delete()
+        self.redirect(CAS_LOGOUT_URL)
+
+
 class MatchHandler(webapp.RequestHandler):
     def get(self):
         crushes = Crush.all()
@@ -253,6 +262,7 @@ def main():
     util.run_wsgi_app(webapp.WSGIApplication([
         (r"/", HomeHandler),
         (r"/login", LoginHandler),
+        (r"/logout", LogoutHandler),
         (r"/entry", EntryHandler),
         (r"/match", MatchHandler),
         (r"/email", EmailHandler),
