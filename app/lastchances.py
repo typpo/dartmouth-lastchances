@@ -96,7 +96,11 @@ class BaseHandler(webapp.RequestHandler):
 
         if not crushes:
             # Get default entries
-            results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user.id))
+            query = db.Query(Crush)
+            query.filter('id =', self.current_user.id)
+            query.order('created')
+
+            results = query.fetch(10)
             crushes = [x.crush for x in results]
 
         # Pad lists
@@ -154,7 +158,11 @@ class EntryHandler(BaseHandler):
             self.response.out.write(template.render('templates/index.html', args))
             return
 
-        results = db.GqlQuery("SELECT * FROM Crush WHERE id='%s' ORDER BY created" % (self.current_user.id))
+        query = db.Query(Crush)
+        query.filter('id =', self.current_user.id)
+        query.order('created')
+
+        results = query.fetch(10)
         orig_crushes = [x.crush for x in results]
 
         names = self.request.POST.getall('c')
@@ -191,7 +199,7 @@ class EntryHandler(BaseHandler):
                 # New crush
                 if len(dndnames[name]) == 0:
                     # No good
-                    comments.append('DND couldn\'t find anyone by this name in your year')
+                    comments.append('DND couldn\'t find anyone named "%s" in your year' % (cgi.escape(name)))
                     new_crushes.append('')
                 elif len(dndnames[name]) == 1:
                     # Add crush
