@@ -20,6 +20,7 @@ from google.appengine.ext.webapp import util
 from google.appengine.ext.webapp import template
 from google.appengine.api import mail
 from google.appengine.api import memcache as mc
+from google.appengine.runtime import DeadlineExceededError
 
 from settings import DEBUG
 from settings import CLASS_YEAR
@@ -160,65 +161,89 @@ class EntryHandler(BaseHandler):
             self.response.out.write(template.render('templates/index.html', args))
             return
 
-        query = db.Query(Crush)
-        query.filter('id =', self.current_user.id)
-        query.order('created')
+        try:
+            query = db.Query(Crush)
+            query.filter('id =', self.current_user.id)
+            query.order('created')
 
-        results = query.fetch(10)
-        orig_crushes = [x.crush for x in results]
+            results = query.fetch(10)
+            orig_crushes = [x.crush for x in results]
 
-        names = self.request.POST.getall('c')
-        orig = self.request.POST.getall('o')
+            names = self.request.POST.getall('c')
+            orig = self.request.POST.getall('o')
 
-        # First handle deletion
-        for crush in orig_crushes:
-            if crush not in names:
-                c = Crush.get_by_key_name(self.current_user.id+':'+crush)
-                if c:
-                    c.delete()
+            # First handle deletion
+            for crush in orig_crushes:
+                if crush not in names:
+                    crushkey = self.current_user.id+':'+crush
+                    c = Crush.get_by_key_name(crushkey)
+                    if c:
+                        logging.info('deleting crush %s from cache and store' % (crushkey))
+                        c.delete()
+                        mc.delete(crushkey, namespace='crushes')
 
-        # Now add anything new
-        d = DNDRemoteLookup()
-        dndnames = d.lookup(names, CLASS_YEAR)
-        new_crushes = []
-        comments = []
-        i = 0
-        for name in names:
-            if name == '':
-                i+=1
-                continue
+            # Now add anything new
+            d = DNDRemoteLookup()
+            # TODO not necessary to lookup names that were already in there (even though we memcache lookups)
+            dndnames = d.lookup(names, CLASS_YEAR)
+            new_crushes = []
+            comments = []
+            i = 0
+            for name in names:
+                if name == '':
+                    i+=1
+                    continue
 
-            # Check if it's already there
-            if name in dndnames and len(dndnames[name])==1:
-                c = Crush.get_by_key_name(self.current_user.id+':'+dndnames[name][0]) 
-            else:
-                c = None
-
-            if c:
-                comments.append('')
-                new_crushes.append(dndnames[name][0])
-            else:
-                # New crush
-                if len(dndnames[name]) == 0:
-                    # No good
-                    comments.append('DND couldn\'t find anyone named "%s" in your year' % (cgi.escape(name)))
-                    new_crushes.append('')
-                elif len(dndnames[name]) == 1:
-                    # Add crush
-                    resolved_name = dndnames[name][0]
-                    c = Crush(key_name=self.current_user.id+':'+resolved_name, id=self.current_user.id, crush=resolved_name)
-                    c.put()
-                    comments.append('Saved')
-                    new_crushes.append(resolved_name)
+                # Check if it's already there
+                crushkeyname = self.current_user.id+':'+dndnames[name][0]
+                """
+                if name in dndnames and len(dndnames[name])==1:
+                    c = Crush.get_by_key_name(crushkeyname)
                 else:
-                    # Unspecific - let them choose
-                    links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' \
-                             % (i,x,x) for x in dndnames[name]]
-                    comments.append('Did you mean: ' + ', '.join(links))
-                    new_crushes.append('')
-            i += 1
+                    c = None
+                """
+                c = mc.get(crushkeyname, namespace='crushes')
 
-        self.render_main(crushes=new_crushes, comments=comments)
+                if c != None or Crush.get_by_key_name(crushkeyname):
+                    # We also checked that it's in db in case it got evicted from memcache
+
+                    if c:
+                        logging.info('Found preexisting crush in cache')
+                    else:
+                        logging.info('Found preexisting crush in store')
+                    comments.append('')
+                    #new_crushes.append(dndnames[name][0])
+                    # Was already validated, so no need to check in dndnames
+                    new_crushes.append(name)
+                else:
+                    # New crush
+                    if len(dndnames[name]) == 0:
+                        # No good
+                        comments.append('DND couldn\'t find anyone named "%s" in your year' % (cgi.escape(name)))
+                        new_crushes.append('')
+                    elif len(dndnames[name]) == 1:
+                        # Add crush
+                        resolved_name = dndnames[name][0]
+                        crushkeyname = self.current_user.id+':'+resolved_name
+                        c = Crush(key_name=crushkeyname, id=self.current_user.id, crush=resolved_name)
+                        c.put()
+                        mc.set(crushkeyname, True, namespace='crushes')
+                        comments.append('Saved')
+                        new_crushes.append(resolved_name)
+                    else:
+                        # Unspecific - let them choose
+                        links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' \
+                                 % (i,x,x) for x in dndnames[name]]
+                        comments.append('Did you mean: ' + ', '.join(links))
+                        new_crushes.append('')
+                i += 1
+
+            self.render_main(crushes=new_crushes, comments=comments)
+
+        except DeadlineExceededError:
+            self.response.clear()
+            self.response.set_status(500)
+            self.response.out.write('The operation could not be completed in time.  Try again or contact technical assistance.')
 
 
 class EmailHandler(BaseHandler):
@@ -264,7 +289,9 @@ class TestHandler(webapp.RequestHandler):
     def get(self):
         name = self.request.get('name')
         crush = self.request.get('crush')
-        c = Crush(key_name=name+':'+crush, id=name, crush=crush)
+        key = name+':'+crush
+        c = Crush(key_name=key, id=name, crush=crush)
+        mc.set(key, True, namespace='crushes')
         c.put()
 
             
