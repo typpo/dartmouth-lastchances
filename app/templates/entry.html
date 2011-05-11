@@ -4,19 +4,42 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
         <title>Dartmouth Class of 2011 Last Chances</title>
         <link type="text/css" rel="stylesheet" href="/static/main.css" />
+        <!--
+        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5.2/jquery.min.js"></script>
+        <script type="text/javascript">
+            var dirty = [];
+            $(function() {
+                $("#mainform input[type='text']").change(function(){
+                    dirty.push($(this).attr('id'));
+                });
+
+                $("#mainform").submit(function(){
+                    param = '';
+                    var first = true;
+                    $.each(dirty,
+                        function(idx, val) {
+                            param += (first ? '' : ',') + val
+                            if (!first)
+                                first = false;
+                    });
+                    return false;
+                });
+            });
+        </script>
+        -->
     </head>
     <body>
         <div class="mainoutline">
         <h1>Dartmouth '11 Last Chances</h1>
         
-        <p><span class="loud"><strong>Find crushes, etc.</strong><br>
+        <p><span class="loud"><strong>Find hookups, etc.</strong><br>
             Logged in as {{id}}. (<a href="{{logout_url}}">Log out</a>)
             </span>
             </p>
 
         <p>
         Enter up to 10 names:
-        <form action="/entry" method="post">
+        <form id="mainform" action="/entry" method="post">
             <input id="c0" name="c" type="text" value="{{v.0}}"/>{{comments.0}}<br>
             <input id="c1" name="c" type="text" value="{{v.1}}"/>{{comments.1}}<br>
             <input id="c2" name="c" type="text" value="{{v.2}}"/>{{comments.2}}<br>
@@ -32,7 +55,7 @@
         </p>
         <hr/>
         <p>
-        You'll receive an email with any matches at:
+        You'll receive an email with matches at:
         <form action="/email" method="post">
             <input id="email" name="email" type="text" value="{{email}}" size="40"/><br>
             <input type="submit" value="Save"/>

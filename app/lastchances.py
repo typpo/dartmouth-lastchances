@@ -68,25 +68,42 @@ class BaseHandler(webapp.RequestHandler):
         if not hasattr(self, '_current_user'):
             sess = sessions.Session()
             if 'id' in sess:
-                u = User.get_by_key_name(sess['id'])
-                if not u:
-                    # We have a new user
-                    id = sess['id']
+                id = sess['id']
 
-                    # Make sure it's the correct class year
-                    d = DNDRemoteLookup()
-                    dndnames = d.lookup([id], CLASS_YEAR)
-                    if id not in dndnames:
-                        # TODO fix this
-                        self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
-                        self._current_user = None
-                        sess.delete()
-                        return None
+                # Try to find user info in memcache
+                cache = mc.get(id, namespace='users')
+                if cache:
+                    logging.info('Found user %s in cache' % (id))
+                    u = User(id=id,email=cache['email'])
+                else:
+                    logging.info('Looking for user %s in store' % (id))
+                    u = User.get_by_key_name(id)
 
-                    # Add new user
-                    email = id.replace(' ','.').replace('..', '.') + '@dartmouth.edu'
-                    u = User(key_name=id, id=id, email=email)
-                    u.save()
+                    if u:
+                        # Memcache
+                        logging.info('Setting user %s in cache' % (id))
+                        mc.set(id, dict(id=u.id, email=u.email), namespace='users')
+                    else:
+                        # We have a new user
+                        logging.info('Creating new user %s' % (id))
+
+                        # Make sure it's the correct class year
+                        d = DNDRemoteLookup()
+                        dndnames = d.lookup([id], CLASS_YEAR)
+                        if id not in dndnames:
+                            # TODO fix this
+                            self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
+                            self._current_user = None
+                            sess.delete()
+                            return None
+
+                        # Add new user
+                        email = id.replace(' ','.').replace('..', '.') + '@dartmouth.edu'
+                        u = User(key_name=id, id=id, email=email)
+                        u.save()
+
+                        # memcache the user
+                        mc.set(id, dict(id=id, email=email), namespace='users')
 
                 self._current_user = u
             else:
@@ -146,10 +163,12 @@ class EntryHandler(BaseHandler):
             return
 
         id = self.current_user.id
+        """
         u = User.get_by_key_name(id)
         if not u:
             self.response.out.write('Something went wrong, please try again.  <a href="/">Home</a>')
             return
+        """
 
         # Generate response
         self.render_main()
@@ -249,8 +268,21 @@ class EntryHandler(BaseHandler):
 class EmailHandler(BaseHandler):
     def post(self): 
         if self.current_user:
-            self.current_user.email = self.request.get('email')     # empty string by default
-            self.current_user.put()
+            # Update in actual store
+            # (self.current_user isn't real datastore user for performance issues)
+            logging.info('email change lookup for user %s' % (self.current_user.id))
+            u = User.get_by_key_name(self.current_user.id)
+            if u:
+                newemail = self.request.get('email')     # empty string by default
+                u.email = newemail
+                u.put()
+
+                # Keep cache up to date
+                mc.set(self.current_user.id, dict(id=u.id, email=u.email), namespace='users')
+
+                # Update return
+                self.current_user.email = newemail
+
             self.render_main()
 
 
