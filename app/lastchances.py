@@ -19,6 +19,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import util
 from google.appengine.ext.webapp import template
 from google.appengine.api import mail
+from google.appengine.api import memcache as mc
 
 from settings import DEBUG
 from settings import CLASS_YEAR
@@ -275,7 +276,7 @@ def main():
         (r"/entry", EntryHandler),
         (r"/match", MatchHandler),
         (r"/email", EmailHandler),
-        (r"/addtestcrush", TestHandler),
+        #(r"/addtestcrush", TestHandler),
     ]))
 
 
