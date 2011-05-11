@@ -195,7 +195,7 @@ class EntryHandler(BaseHandler):
                     continue
 
                 # Check if it's already there
-                crushkeyname = self.current_user.id+':'+dndnames[name][0]
+                crushkeyname = self.current_user.id+':'+name#dndnames[name][0]
                 """
                 if name in dndnames and len(dndnames[name])==1:
                     c = Crush.get_by_key_name(crushkeyname)
@@ -216,13 +216,13 @@ class EntryHandler(BaseHandler):
                     # Was already validated, so no need to check in dndnames
                     new_crushes.append(name)
                 else:
-                    # New crush
+                    # Crush doesn't already exist
                     if len(dndnames[name]) == 0:
                         # No good
                         comments.append('DND couldn\'t find anyone named "%s" in your year' % (cgi.escape(name)))
                         new_crushes.append('')
                     elif len(dndnames[name]) == 1:
-                        # Add crush
+                        # New crush
                         resolved_name = dndnames[name][0]
                         crushkeyname = self.current_user.id+':'+resolved_name
                         c = Crush(key_name=crushkeyname, id=self.current_user.id, crush=resolved_name)
@@ -232,7 +232,7 @@ class EntryHandler(BaseHandler):
                         new_crushes.append(resolved_name)
                     else:
                         # Unspecific - let them choose
-                        links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return False;">%s</a>' \
+                        links = ['<a href="#" onClick="document.getElementById(\'c%d\').value=\'%s\';return false;">%s</a>' \
                                  % (i,x,x) for x in dndnames[name]]
                         comments.append('Did you mean: ' + ', '.join(links))
                         new_crushes.append('')
