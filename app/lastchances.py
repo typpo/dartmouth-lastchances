@@ -78,6 +78,7 @@ class BaseHandler(webapp.RequestHandler):
                         # TODO fix this
                         self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
                         self._current_user = None
+                        sess.delete()
                         return None
 
                     # Add new user
@@ -251,8 +252,8 @@ class MatchHandler(webapp.RequestHandler):
                 self.response.out.write('%s matches %s!<br>\n' % (d[key].id, d[key].crush))
                 num += 1
 
-        users = User.all()
-        s = Stats(key_name='default', num_matches=num, num_entries=len(d), num_participants=len(users))
+        num_users = User.all().count()
+        s = Stats(key_name='default', num_matches=num, num_entries=len(d), num_participants=num_users)
         s.put()
 
         self.response.out.write('Done')
