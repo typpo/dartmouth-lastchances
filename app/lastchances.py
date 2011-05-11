@@ -80,7 +80,7 @@ class BaseHandler(webapp.RequestHandler):
                     u = User.get_by_key_name(id)
 
                     if u:
-                        # Memcache
+                        # Memcache already existing user
                         logging.info('Setting user %s in cache' % (id))
                         mc.set(id, dict(id=u.id, email=u.email), namespace='users')
                     else:
@@ -158,17 +158,8 @@ class LoginHandler(BaseHandler):
 class EntryHandler(BaseHandler):
     def get(self): 
         if not self.current_user:
-            # TODO redirect
             self.response.out.write('You are not logged in.  <a href="/">Home</a>')
             return
-
-        id = self.current_user.id
-        """
-        u = User.get_by_key_name(id)
-        if not u:
-            self.response.out.write('Something went wrong, please try again.  <a href="/">Home</a>')
-            return
-        """
 
         # Generate response
         self.render_main()
@@ -214,25 +205,18 @@ class EntryHandler(BaseHandler):
                     continue
 
                 # Check if it's already there
-                crushkeyname = self.current_user.id+':'+name#dndnames[name][0]
-                """
-                if name in dndnames and len(dndnames[name])==1:
-                    c = Crush.get_by_key_name(crushkeyname)
-                else:
-                    c = None
-                """
+                crushkeyname = self.current_user.id+':'+name
                 c = mc.get(crushkeyname, namespace='crushes')
 
                 if c != None or Crush.get_by_key_name(crushkeyname):
-                    # We also checked that it's in db in case it got evicted from memcache
-
+                    # We also checked that it's in db in case it got evicted from cache
                     if c:
                         logging.info('Found preexisting crush in cache')
                     else:
                         logging.info('Found preexisting crush in store')
-                    comments.append('')
-                    #new_crushes.append(dndnames[name][0])
+
                     # Was already validated, so no need to check in dndnames
+                    comments.append('')
                     new_crushes.append(name)
                 else:
                     # Crush doesn't already exist
@@ -269,7 +253,7 @@ class EmailHandler(BaseHandler):
     def post(self): 
         if self.current_user:
             # Update in actual store
-            # (self.current_user isn't real datastore user for performance issues)
+            # (remember self.current_user isn't real datastore user for performance issues)
             logging.info('email change lookup for user %s' % (self.current_user.id))
             u = User.get_by_key_name(self.current_user.id)
             if u:
