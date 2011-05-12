@@ -1,7 +1,7 @@
 ##
 # Python CAS client
 # Based on https://sp.princeton.edu/oit/sdp/CAS/Wiki%20Pages/Python.aspx
-# Modified by Ian Webster in 4/2/11
+# Modified by Ian Webster 4/2/11
 ##
 
 import sys

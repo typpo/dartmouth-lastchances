@@ -11,7 +11,7 @@ foreach ($names as $name) {
     if ($name !== "") {
         $results = array();
         // exec("dndlookup -f name \"$name\" -f deptclass \"$year\"", $results);            // if dndlookup is installed
-        exec("python dnd.py \"$name\" \"$year\"", $results);                        // if it isn't
+        exec("python dnd.py \"$name\" \"$year\"", $results);                                // if it isn't
         $ret[] = implode("\n", $results);
     }   
 }
