@@ -18,6 +18,10 @@ handlers:
   script: lastchances.py
   login: admin
 
+- url: /_ah/queue/hothandler/.*
+  script: hothandler.py
+  login: admin
+
 - url: /.*
   script: lastchances.py
 

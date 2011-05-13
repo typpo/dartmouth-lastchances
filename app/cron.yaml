@@ -1,0 +1,4 @@
+cron:
+- description: ensure hot handler
+  url: /_ah/queue/hothandler/start
+  schedule: every 4 hours
