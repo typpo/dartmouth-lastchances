@@ -92,7 +92,6 @@ class BaseHandler(webapp.RequestHandler):
                         dndnames = d.lookup([id], CLASS_YEAR)
                         if id not in dndnames or len(dndnames[id])==0:
                             logging.info('Reject new user %s' % (id))
-                            # TODO fix this
                             self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
                             self._current_user = None
                             sess.delete()
@@ -311,6 +310,14 @@ class TestHandler(webapp.RequestHandler):
         mc.set(key, True, namespace='crushes')
         c.put()
 
+
+class ClearMemcacheHandler(webapp.RequestHandler):
+    def get(self):
+        if mc.flush_all():
+            self.response.out.write('ok')
+        else:
+            self.response.out.write('error')
+
             
 def main():
     util.run_wsgi_app(webapp.WSGIApplication([
@@ -320,6 +327,7 @@ def main():
         (r"/entry", EntryHandler),
         (r"/match", MatchHandler),
         (r"/email", EmailHandler),
+        (r"/clearmemcache", ClearMemcacheHandler),
         #(r"/addtestcrush", TestHandler),
     ]))
 
