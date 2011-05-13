@@ -29,7 +29,8 @@ CAS_URL = 'https://login.dartmouth.edu/cas/'
 if DEBUG:
     SERVICE_URL = 'http://localhost:8080/login'
 else:
-    SERVICE_URL = 'http://dartmouthlastchances.appspot.com/login'
+    #SERVICE_URL = 'http://dartmouthlastchances.appspot.com/login'
+    SERVICE_URL = 'http://www.dartmouthlastchances.com/login'
 
 LOGOUT_URL = '/logout'
 CAS_LOGOUT_URL = 'https://login.dartmouth.edu/cas/logout?service='+SERVICE_URL
