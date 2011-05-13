@@ -90,7 +90,8 @@ class BaseHandler(webapp.RequestHandler):
                         # Make sure it's the correct class year
                         d = DNDRemoteLookup()
                         dndnames = d.lookup([id], CLASS_YEAR)
-                        if id not in dndnames:
+                        if id not in dndnames or len(dndnames[id])==0:
+                            logging.info('Reject new user %s' % (id))
                             # TODO fix this
                             self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
                             self._current_user = None
