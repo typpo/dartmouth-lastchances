@@ -14,6 +14,14 @@ handlers:
   script: lastchances.py
   login: admin
 
+- url: /mail
+  script: lastchances.py
+  login: admin
+
+- url: /mailuser
+  script: lastchances.py
+  login: admin
+
 - url: /addtestcrush
   script: lastchances.py
   login: admin

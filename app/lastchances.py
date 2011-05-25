@@ -20,6 +20,7 @@ from google.appengine.ext.webapp import util
 from google.appengine.ext.webapp import template
 from google.appengine.api import mail
 from google.appengine.api import memcache as mc
+from google.appengine.api import taskqueue
 from google.appengine.runtime import DeadlineExceededError
 
 from settings import DEBUG
@@ -50,10 +51,9 @@ class Crush(db.Model):
 
 
 class Match(db.Model):
+    id = db.StringProperty(required=True)
     name1 = db.StringProperty(required=True)
     name2 = db.StringProperty(required=True)
-    email1 = db.StringProperty(required=True)
-    email2 = db.StringProperty(required=True)
 
 
 class Stats(db.Model):
@@ -287,19 +287,62 @@ class MatchHandler(webapp.RequestHandler):
             key = entry.id + ':' + entry.crush
             d[key] = entry
 
-        num = 0
+        #num = 0
         for key in d:
+            matchkey = d[key].crush + ':' + d[key].id
+            # If there's a match, we expect to see this key
+            if matchkey in d:
+                logging.warning('%s matches %s!\n' % (d[key].id, d[key].crush))
+                m = Match(key_name=key, id=key, name1=d[key].id, name2=d[key].crush)
+                m.put()
+
+            """
             matchkey = d[key].crush+ ':' + d[key].id
             # If there's a match, we expect to see this key
             if matchkey in d:
                 self.response.out.write('%s matches %s!<br>\n' % (d[key].id, d[key].crush))
                 num += 1
+            """
 
+        """
         num_users = User.all().count()
         s = Stats(key_name='default', num_matches=num, num_entries=len(d), num_participants=num_users)
         s.put()
+        """
 
         self.response.out.write('Done')
+
+
+class MailHandler(webapp.RequestHandler):
+    def get(self):
+        ms = Match.all()
+        for m in ms:
+            try:
+                taskqueue.add(url='/mailuser', params=dict(key=m.id, to=m.name1, about=m.name2))
+            except taskqueue.TransientError:
+                logging.critical("Couldn't add task to mail %s for %s" % (m.name1, m.name2))
+        self.response.out.write('Done')
+
+
+class MailUserWorker(webapp.RequestHandler):
+    def post(self):
+        key  = self.request.get('key')
+        to = self.request.get('to')
+        about = self.request.get('about')
+
+        email = to.replace(' ','.').replace('..','.') + '@dartmouth.edu'
+
+        logging.info('Mailing %s for %s' % (email, about))
+
+        mail.send_mail(
+            sender='Last Chances <no-reply@dartmouthlastchances.appspotmail.com>',
+            #sender='Last Chances <no-reply@dartmouthlastchances.com>',
+            to=email,
+            subject='Last Chances Match - %s' % (about),
+            body="Thanks for helping test Dartmouth '11 Last Chances.  You were matched with %s!" % (about))
+
+        Match.get_by_key_name(key).delete()
+
 
 
 class TestHandler(webapp.RequestHandler):
@@ -327,6 +370,8 @@ def main():
         (r"/logout", LogoutHandler),
         (r"/entry", EntryHandler),
         (r"/match", MatchHandler),
+        (r"/mail", MailHandler),
+        (r"/mailuser", MailUserWorker),
         (r"/email", EmailHandler),
         (r"/clearmemcache", ClearMemcacheHandler),
         #(r"/addtestcrush", TestHandler),

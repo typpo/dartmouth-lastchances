@@ -33,6 +33,7 @@ class CASClient:
 
 
     def Validate(self, ticket):
+        # TODO handle downloaderror
         val_url = self.cas_url + "validate" + \
             '?service=' + urllib.quote(self.service_url) + \
             '&ticket=' + urllib.quote(ticket)
