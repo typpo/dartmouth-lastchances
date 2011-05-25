@@ -112,7 +112,7 @@ class BaseHandler(webapp.RequestHandler):
         return self._current_user
 
 
-    def render_main(self, crushes=None, comments=['']*10):
+    def render_main(self, crushes=None, comments=['']*11):
         # Display entry page, with errors, etc.
 
         if not crushes:
@@ -121,12 +121,12 @@ class BaseHandler(webapp.RequestHandler):
             query.filter('id =', self.current_user.id)
             query.order('created')
 
-            results = query.fetch(10)
+            results = query.fetch(11)
             crushes = [x.crush for x in results]
 
         # Pad lists
-        crushes += ['']*(10-len(crushes))
-        comments += ['']*(10-len(comments))
+        crushes += ['']*(11-len(crushes))
+        comments += ['']*(11-len(comments))
 
         args = dict(id=self.current_user.id, v=crushes, comments=comments, logout_url=LOGOUT_URL, email=self.current_user.email)
         self.response.out.write(template.render('templates/entry.html', args))
@@ -177,7 +177,7 @@ class EntryHandler(BaseHandler):
             query.filter('id =', self.current_user.id)
             query.order('created')
 
-            results = query.fetch(10)
+            results = query.fetch(11)
             orig_crushes = [x.crush for x in results]
 
             names = self.request.POST.getall('c')
@@ -362,6 +362,48 @@ class ClearMemcacheHandler(webapp.RequestHandler):
         else:
             self.response.out.write('error')
 
+
+class ClearAllHandler(webapp.RequestHandler):
+    def get(self):
+        try:
+            if mc.flush_all():
+                self.response.out.write('cleared memcache...<br>')
+            else:
+                self.response.out.write('error clearing memcache')
+                return
+
+
+            us = User.all()
+            for u in us:
+                u.delete()
+            self.response.out.write('cleared users...<br>')
+
+            cs = Crush.all()
+            for c in cs:
+                c.delete()
+            self.response.out.write('cleared crushes...<br>')
+
+            ms = Match.all()
+            for m in ms:
+                m.delete()
+            self.response.out.write('cleared matches...<br>')
+
+            """
+            ss = Session.all()
+            for s in ss:
+                s.delete()
+            self.response.out.write('cleared sessions...<br>')
+
+            sd = SessionData.all()
+            for s in sd:
+                s.delete()
+            self.response.out.write('cleared session data...<br>')
+            """
+
+            self.response.out.write('Done.  Clear all sessions in app engine admin to be safe')
+        except:
+            self.response.out.write('error')
+
             
 def main():
     util.run_wsgi_app(webapp.WSGIApplication([
@@ -374,6 +416,7 @@ def main():
         (r"/mailuser", MailUserWorker),
         (r"/email", EmailHandler),
         (r"/clearmemcache", ClearMemcacheHandler),
+        (r"/clearall", ClearAllHandler),
         #(r"/addtestcrush", TestHandler),
     ]))
 
