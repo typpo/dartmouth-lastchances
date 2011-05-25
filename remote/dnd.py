@@ -36,6 +36,8 @@ class DNDLookup:
             print 'DND: Not connected to server'
             return False
 
+        name = name.decode('string-escape')
+        year = year.decode('string-escape')
         if self.s.send("LOOKUP %s %s, name deptclass\r\n" % (name, year)) == 0:
             print 'DND: Lookup failed'
             return False

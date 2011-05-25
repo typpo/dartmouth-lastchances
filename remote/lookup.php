@@ -6,8 +6,8 @@ foreach ($names as $name) {
     if ($name == "") {
         continue;
     }   
-    $name = escapeshellcmd($name);
-    $year = escapeshellcmd($year);
+    $name = escapeshellcmd(stripcslashes($name));
+    $year = escapeshellcmd(stripcslashes($year));
     if ($name !== "") {
         $results = array();
         // exec("dndlookup -f name \"$name\" -f deptclass \"$year\"", $results);            // if dndlookup is installed
