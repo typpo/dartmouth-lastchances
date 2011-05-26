@@ -4,29 +4,6 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
         <title>Dartmouth Class of 2011 Last Chances</title>
         <link type="text/css" rel="stylesheet" href="/static/main.css" />
-        <!--
-        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5.2/jquery.min.js"></script>
-        <script type="text/javascript">
-            var dirty = [];
-            $(function() {
-                $("#mainform input[type='text']").change(function(){
-                    dirty.push($(this).attr('id'));
-                });
-
-                $("#mainform").submit(function(){
-                    param = '';
-                    var first = true;
-                    $.each(dirty,
-                        function(idx, val) {
-                            param += (first ? '' : ',') + val
-                            if (!first)
-                                first = false;
-                    });
-                    return false;
-                });
-            });
-        </script>
-        -->
 <script type="text/javascript">
 
   var _gaq = _gaq || [];
@@ -51,7 +28,7 @@
             </p>
 
         <p>
-        Enter up to 11 names ('11s only):<br>
+        Enter up to 11 names ('11s only, DND entries work).  Your picks are kept private unless you are matched:<br>
         <form id="mainform" action="/entry" method="post">
             <input id="c0" name="c" type="text" value="{{v.0}}"/>{{comments.0}}<br>
             <input id="c1" name="c" type="text" value="{{v.1}}"/>{{comments.1}}<br>
