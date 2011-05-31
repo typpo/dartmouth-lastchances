@@ -2,4 +2,12 @@ Dartmouth Last Chances
 
 A great tradition...I think.  Sponsored by '11 Class Council, for seniors.  Written for Google App Engine.
 
-Hacker Club project http://hacktown.cs.dartmouth.edu/
+Written by Ian Webster '11, Hacker Club project http://hacktown.cs.dartmouth.edu/
+
+To run matching as admin:
+/match
+/mail
+
+TODO:
+remove/translate unicode chars in DND lookups
+better way to add superseniors

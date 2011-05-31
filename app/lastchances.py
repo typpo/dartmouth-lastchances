@@ -54,6 +54,7 @@ class Match(db.Model):
     id = db.StringProperty(required=True)
     name1 = db.StringProperty(required=True)
     name2 = db.StringProperty(required=True)
+    email = db.StringProperty(required=False)
 
 
 class Stats(db.Model):
@@ -89,14 +90,17 @@ class BaseHandler(webapp.RequestHandler):
                         logging.info('Creating new user %s' % (id))
 
                         # Make sure it's the correct class year
-                        d = DNDRemoteLookup()
-                        dndnames = d.lookup([id], CLASS_YEAR)
-                        if id not in dndnames or len(dndnames[id])==0:
-                            logging.info('Reject new user %s' % (id))
-                            self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
-                            self._current_user = None
-                            sess.delete()
-                            return None
+                        # This guy is a supersenior and I don't have a better way to do this yet
+                        # TODO make a supersenior config file
+                        if not id == 'Zechariah L. Glaize':
+                            d = DNDRemoteLookup()
+                            dndnames = d.lookup([id], CLASS_YEAR)
+                            if id not in dndnames or len(dndnames[id])==0:
+                                logging.info('Reject new user %s' % (id))
+                                self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
+                                self._current_user = None
+                                sess.delete()
+                                return None
 
                         # Add new user
                         email = id.replace(' ','.').replace('..', '.') + '@dartmouth.edu'
@@ -279,6 +283,11 @@ class LogoutHandler(BaseHandler):
 
 class MatchHandler(webapp.RequestHandler):
     def get(self):
+        # clear matches
+        matches = Match.all()
+        for m in matches:
+            m.delete()
+
         crushes = Crush.all()
 
         # Create dict, keyed by crusher, value crushee
@@ -293,7 +302,12 @@ class MatchHandler(webapp.RequestHandler):
             # If there's a match, we expect to see this key
             if matchkey in d:
                 logging.warning('%s matches %s!\n' % (d[key].id, d[key].crush))
-                m = Match(key_name=key, id=key, name1=d[key].id, name2=d[key].crush)
+                # look up crusher's preferred email
+                user = User.get_by_key_name(d[key].id)
+                if not user:
+                    logging.critical("Couldn't find user for matching %s" % (d[key].id))
+                    continue
+                m = Match(key_name=key, id=key, name1=d[key].id, name2=d[key].crush, email=user.email)
                 m.put()
 
             """
@@ -318,7 +332,7 @@ class MailHandler(webapp.RequestHandler):
         ms = Match.all()
         for m in ms:
             try:
-                taskqueue.add(url='/mailuser', params=dict(key=m.id, to=m.name1, about=m.name2))
+                taskqueue.add(url='/mailuser', params=dict(key=m.id, to=m.name1, about=m.name2, email=m.email))
             except taskqueue.TransientError:
                 logging.critical("Couldn't add task to mail %s for %s" % (m.name1, m.name2))
         self.response.out.write('Done')
@@ -329,8 +343,9 @@ class MailUserWorker(webapp.RequestHandler):
         key  = self.request.get('key')
         to = self.request.get('to')
         about = self.request.get('about')
+        email = self.request.get('email')
 
-        email = to.replace(' ','.').replace('..','.') + '@dartmouth.edu'
+        #email = to.replace(' ','.').replace('..','.') + '@dartmouth.edu'
 
         logging.info('Mailing %s for %s' % (email, about))
 
@@ -404,6 +419,44 @@ class ClearAllHandler(webapp.RequestHandler):
         except:
             self.response.out.write('error')
 
+class CrushedOnHandler(webapp.RequestHandler):
+    def get(self):
+        cs = Crush.all()
+        d = {}
+        for c in cs:
+            if c.crush in d:
+                d[c.crush] += 1
+            else:
+                d[c.crush] = 1
+
+        for key, value in sorted(d.iteritems(), key=lambda (k,v): (v,k), reverse=True):
+            self.response.out.write('%s: %s<br>' % (key, value))
+        self.response.out.write('Done')
+
+
+class StatsHandler(webapp.RequestHandler):
+    def get(self):
+        us = User.all()
+        c = 0
+        for x in us:
+            c +=1
+
+        self.response.out.write(str(c) + ' users<br>')
+
+        cs = Crush.all()
+        c = 0
+        for x in cs:
+            c += 1
+        self.response.out.write(str(c) + ' crushes<br>')
+
+        ms = Match.all()
+        c = 0
+        for x in ms:
+            c += 1
+
+        self.response.out.write(str(c) + ' matches<br>')
+        
+
             
 def main():
     util.run_wsgi_app(webapp.WSGIApplication([
@@ -415,8 +468,10 @@ def main():
         (r"/mail", MailHandler),
         (r"/mailuser", MailUserWorker),
         (r"/email", EmailHandler),
-        (r"/clearmemcache", ClearMemcacheHandler),
-        (r"/clearall", ClearAllHandler),
+        #(r"/clearmemcache", ClearMemcacheHandler),
+        #(r"/clearall", ClearAllHandler),
+        (r"/crushedon", CrushedOnHandler),
+        (r"/stats", StatsHandler),
         #(r"/addtestcrush", TestHandler),
     ]))
 

@@ -34,6 +34,14 @@ handlers:
   script: lastchances.py
   login: admin
 
+- url: /crushedon
+  script: lastchances.py
+  login: admin
+
+- url: /stats
+  script: lastchances.py
+  login: admin
+
 - url: /_ah/queue/hothandler/.*
   script: hothandler.py
   login: admin
