@@ -9,5 +9,6 @@ To run matching as admin:
 /mail
 
 TODO:
-remove/translate unicode chars in DND lookups
-better way to add superseniors
+- remove/translate unicode chars in DND lookups
+- better way to add superseniors
+- toggle flag to display matches on site

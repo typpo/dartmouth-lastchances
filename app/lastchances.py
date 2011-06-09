@@ -23,8 +23,7 @@ from google.appengine.api import memcache as mc
 from google.appengine.api import taskqueue
 from google.appengine.runtime import DeadlineExceededError
 
-from settings import DEBUG
-from settings import CLASS_YEAR
+from settings import DEBUG, CLASS_YEAR, RELEASE_MATCHES
 
 CAS_URL = 'https://login.dartmouth.edu/cas/'
 if DEBUG:
@@ -90,17 +89,14 @@ class BaseHandler(webapp.RequestHandler):
                         logging.info('Creating new user %s' % (id))
 
                         # Make sure it's the correct class year
-                        # This guy is a supersenior and I don't have a better way to do this yet
-                        # TODO make a supersenior config file
-                        if not id == 'Zechariah L. Glaize':
-                            d = DNDRemoteLookup()
-                            dndnames = d.lookup([id], CLASS_YEAR)
-                            if id not in dndnames or len(dndnames[id])==0:
-                                logging.info('Reject new user %s' % (id))
-                                self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
-                                self._current_user = None
-                                sess.delete()
-                                return None
+                        d = DNDRemoteLookup()
+                        dndnames = d.lookup([id], CLASS_YEAR)
+                        if id not in dndnames or len(dndnames[id])==0:
+                            logging.info('Reject new user %s' % (id))
+                            self.response.out.write("Sorry, only the senior class can enter last chances.  If you think there's been a mistake, please contact people running this.")
+                            self._current_user = None
+                            sess.delete()
+                            return None
 
                         # Add new user
                         email = id.replace(' ','.').replace('..', '.') + '@dartmouth.edu'
@@ -166,8 +162,24 @@ class EntryHandler(BaseHandler):
             self.response.out.write('You are not logged in.  <a href="/">Home</a>')
             return
 
-        # Generate response
-        self.render_main()
+        if RELEASE_MATCHES:
+            q = db.Query(Match)
+            q.filter('name1 =', self.current_user.id)
+
+            matches = []
+            for match in q:
+                matches.append(match.name2)
+
+            if len(matches) > 0:
+                match = 'Your match(es): %s' % (', '.join(matches))
+            else:
+                match = 'Sorry, no matches :('
+
+            args = dict(id=self.current_user.id, logout_url=LOGOUT_URL, email=self.current_user.email, match=match)
+            self.response.out.write(template.render('templates/match.html', args))
+        else:
+            # Generate entry response
+            self.render_main()
 
 
     def post(self):
@@ -283,11 +295,6 @@ class LogoutHandler(BaseHandler):
 
 class MatchHandler(webapp.RequestHandler):
     def get(self):
-        # clear matches
-        matches = Match.all()
-        for m in matches:
-            m.delete()
-
         crushes = Crush.all()
 
         # Create dict, keyed by crusher, value crushee
@@ -296,8 +303,11 @@ class MatchHandler(webapp.RequestHandler):
             key = entry.id + ':' + entry.crush
             d[key] = entry
 
-        #num = 0
         for key in d:
+            if d[key].crush == d[key].id:
+                # self-crush
+                continue
+
             matchkey = d[key].crush + ':' + d[key].id
             # If there's a match, we expect to see this key
             if matchkey in d:
@@ -310,33 +320,29 @@ class MatchHandler(webapp.RequestHandler):
                 m = Match(key_name=key, id=key, name1=d[key].id, name2=d[key].crush, email=user.email)
                 m.put()
 
-            """
-            matchkey = d[key].crush+ ':' + d[key].id
-            # If there's a match, we expect to see this key
-            if matchkey in d:
-                self.response.out.write('%s matches %s!<br>\n' % (d[key].id, d[key].crush))
-                num += 1
-            """
-
-        """
-        num_users = User.all().count()
-        s = Stats(key_name='default', num_matches=num, num_entries=len(d), num_participants=num_users)
-        s.put()
-        """
-
         self.response.out.write('Done')
 
 
-class MailHandler(webapp.RequestHandler):
+class MatchMailHandler(webapp.RequestHandler):
     def get(self):
-        ms = Match.all()
-        for m in ms:
-            try:
-                taskqueue.add(url='/mailuser', params=dict(key=m.id, to=m.name1, about=m.name2, email=m.email))
-            except taskqueue.TransientError:
-                logging.critical("Couldn't add task to mail %s for %s" % (m.name1, m.name2))
-        self.response.out.write('Done')
+        us = User.all()
+        for u in us:
+            q = db.Query(Match)
+            q.filter('name1 =', u.id)
 
+            matches = []
+            for match in q:
+                matches.append(match.name2)
+
+            if len(matches) > 0:
+                # send email
+                try:
+                    taskqueue.add(url='/mailuser', params=dict(key=u.id, to=u.id, about=', '.join(matches), email=u.email))
+                except taskqueue.TransientError:
+                    logging.critical("Couldn't add task to mail %s for %s" % (u.id))
+
+                self.response.out.write('%s matched %s<br>' % (u.id, ','.join(matches)))
+        self.response.out.write('Done')
 
 class MailUserWorker(webapp.RequestHandler):
     def post(self):
@@ -345,18 +351,20 @@ class MailUserWorker(webapp.RequestHandler):
         about = self.request.get('about')
         email = self.request.get('email')
 
-        #email = to.replace(' ','.').replace('..','.') + '@dartmouth.edu'
+        try:
+            #email = to.replace(' ','.').replace('..','.') + '@dartmouth.edu'
 
-        logging.info('Mailing %s for %s' % (email, about))
+            logging.info('ACTUALLY Mailing %s for %s' % (email, about))
 
-        mail.send_mail(
-            sender='Last Chances <no-reply@dartmouthlastchances.appspotmail.com>',
-            #sender='Last Chances <no-reply@dartmouthlastchances.com>',
-            to=email,
-            subject='Last Chances Match - %s' % (about),
-            body="Thanks for helping test Dartmouth '11 Last Chances.  You were matched with %s!" % (about))
+            mail.send_mail(
+                sender='Last Chances <no-reply@dartmouthlastchances.appspotmail.com>',
+                to=email,
+                subject='Last Chances Results',
+                body='Your last chances match(es) are: %s.' % (about))
 
-        Match.get_by_key_name(key).delete()
+            #Match.get_by_key_name(key).delete()
+        except:
+            logging.critical('Email failed for %s' % (to))
 
 
 
@@ -402,18 +410,6 @@ class ClearAllHandler(webapp.RequestHandler):
             for m in ms:
                 m.delete()
             self.response.out.write('cleared matches...<br>')
-
-            """
-            ss = Session.all()
-            for s in ss:
-                s.delete()
-            self.response.out.write('cleared sessions...<br>')
-
-            sd = SessionData.all()
-            for s in sd:
-                s.delete()
-            self.response.out.write('cleared session data...<br>')
-            """
 
             self.response.out.write('Done.  Clear all sessions in app engine admin to be safe')
         except:
@@ -465,8 +461,8 @@ def main():
         (r"/logout", LogoutHandler),
         (r"/entry", EntryHandler),
         (r"/match", MatchHandler),
-        (r"/mail", MailHandler),
-        (r"/mailuser", MailUserWorker),
+        #(r"/mail", MatchMailHandler),
+        #(r"/mailuser", MailUserWorker),
         (r"/email", EmailHandler),
         #(r"/clearmemcache", ClearMemcacheHandler),
         #(r"/clearall", ClearAllHandler),

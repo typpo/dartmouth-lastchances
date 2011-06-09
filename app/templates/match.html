@@ -22,25 +22,17 @@
         <div class="mainoutline">
         <h1>Dartmouth '11 Last Chances</h1>
         
-        <!--
         <p><span class="loud"><strong>Find hookups, etc.</strong><br>
-            You'll get an email with matches in time for Senior Week.</span>
+            Logged in as {{id}}. (<a href="{{logout_url}}">Log out</a>)
+            </span>
             </p>
-            -->
-            <h2>Results are out</h2>
 
-            <p>
-            {% if user %}
-            Hi, {{user.id}}.  <a href="/entry">Go to entry/results page</a>
-            <br>
-            (<a href="{{logout_url}}">Log out</a>)
-            {% else %}
-            <h1><a href="/login">Login</a></h1>
-            {% endif %}
-            </p>
-        
+        <p>
+        <h1>{{match}}</h1>
+        </p>
         </div>
-        <div class="footer">Home | <a href="/pages/about.html">About</a><br>
+        <div class="footer">
+            Home | <a href="/pages/about.html">About</a><br>
             660 people, 3743 entries and counting. What are your chances?
         </div>
     </body>
