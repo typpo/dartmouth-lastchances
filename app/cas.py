@@ -29,7 +29,6 @@ class CASClient:
         print 'Location: ' + login_url
         print 'Status-line: HTTP/1.1 307 Temporary Redirect'
         print ""
-        sys.exit(0)
 
 
     def Validate(self, ticket):
