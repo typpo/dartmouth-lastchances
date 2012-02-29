@@ -4,7 +4,6 @@
 # Modified by Ian Webster 4/2/11
 ##
 
-import sys
 import urllib
 import re
 
